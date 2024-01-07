@@ -6,17 +6,24 @@
 #include <stdbool.h>
 
 struct RunIndices {
-    int indices;
+    int startIndices;
+    int endIndices;
     int length;
 };
 typedef struct RunIndices runIndices;
 
-int runMaker(int array[], runIndices runs[], int sizeBig, int minSize, int maxSize);
+int runMaker(int array[], runIndices runs[], runIndices mergedRuns[], runIndices stack[], int sizeBig, int minSize);
 int *binaryInsert(int firstArray[], int firstSize, int element);
 void ascending(int *i, int sizeBig, int minSize, int array[]);
 void descendingFunction(int *i, int sizeBig, int minSize, int array[], int *start_descending, bool *descending);
 int binarySearch(int array[], int low, int high, int target);
 int gallop(int start, int end, int array[], int target);
+int combineMerge(int array[], int firstArray[], int secondArray[], int *firstArraySize, int *secondArraySize, int *originalArrayPosition);
+int stack(int array[], int *arraySize, int stackArray[], runIndices run[], runIndices mergedRuns[], runIndices stack[], int *arrayPosition);
+int firstInvariantLogic(int array[], int firstArray[], int secondArray[], int thirdArray[], runIndices run[], runIndices mergedRuns[], runIndices stack[], int *arrayPosition, int *firstArrayLength, int *secondArrayLength, int *thirdArrayLength);
+int secondInvariantLogic(int array[], int firstArray[], int secondArray[], int thirdArray[], runIndices run[], runIndices mergedRuns[], runIndices stack[], int *arrayPosition, int *firstArrayLength, int *secondArrayLength, int *thirdArrayLength);
+void pocket(int *original, int start, int end, int *smallArray);
+void initializeStack(runIndices runs[], runIndices stack[], int sizeofNumber);
 
 int main() {
     clock_t start, end; // Declare variables to hold the start and end times
@@ -33,14 +40,22 @@ int main() {
     int k = sizeBig;
     runIndices runs[70];
     runIndices mergedRuns[70];
+    runIndices stack[3];
     int y;
     for (y = 0; y < 70; y++) {
-        runs[y].indices = 0;
+        runs[y].startIndices = 0;
+        runs[y].endIndices = 0;
         runs[y].length = 0;
     }
     for (y = 0; y < 70; y++) {
-        mergedRuns[y].indices = 0;
+        mergedRuns[y].startIndices = 0;
+        mergedRuns[y].endIndices = 0;
         mergedRuns[y].length = 0;
+    }
+    for (y = 0; y < 3; y++) {
+        stack[y].startIndices = 0;
+        stack[y].endIndices = 0;
+        stack[y].length = 0;
     }
     int count = 0;
     // Calculate the nearest power of 2 for the number of runs
@@ -59,22 +74,24 @@ int main() {
     printf("Minimum Run Size: %d\n", minRunSize);
     printf("Maximum Run Size: %d\n", maxRunSize);
     for (int l = 0; l < 70; l++) {
-        printf("%d ", runs[l].indices);
+        printf("%d ", runs[l].startIndices);
+        printf("%d ", runs[l].endIndices);
         printf("%d ", runs[l].length);
         printf("\n");
     }
     printf("\n");
-    int g = runMaker(array, runs, sizeBig, minRunSize, maxRunSize) - 1;
+    int g = runMaker(array, runs, mergedRuns, stack, sizeBig, minRunSize) - 1;
     for (int l = 0; l < 70; l++) {
-        printf("%d ", runs[l].indices);
+        printf("%d ", runs[l].startIndices);
+        printf("%d ", runs[l].endIndices);
         printf("%d ", runs[l].length);
         printf("\n");
     }
     printf("\n");
     int i = 0;
     for (int l = 0; l < sizeBig; l++) {
-        if (l == runs[i].indices) {
-            printf("    -->At %d\n", runs[i].indices);
+        if (l == runs[i].startIndices) {
+            printf("    -->At %d\n", runs[i].startIndices);
             i++;
         }
         printf("%d ", array[l]);
@@ -90,30 +107,27 @@ int main() {
 }
 
 
-int runMaker(int array[], runIndices runs[], int sizeBig, int minSize, int maxSize) {
+int runMaker(int array[], runIndices runs[], runIndices mergedRuns[], runIndices stack[], int sizeBig, int minSize) {
     int k = 0; // Index for indices array
     int i = 0; // Index for scanning through the main array
-    int number[3];
     int realStackSize = 0;
-    int sizeofNumber = sizeof(number) / sizeof(number[0]);
+    int sizeofNumber = 3;
     int start_descending = 0;
     bool descending = 0;
     while (i < sizeBig - 1 || descending == 1) {
 
         // Record the start of the current run
         if (i < sizeBig - 1) {
-            runs[k].indices = i;
+            runs[k].startIndices = i;
             if (k == 0) {
                 runs[k].length = k;
             } else {
-                runs[k].length = runs[k].indices - runs[k - 1].indices;
+                runs[k - 1].endIndices = runs[k].startIndices - 1;
+                runs[k - 1].length = runs[k - 1].endIndices - runs[k - 1].startIndices;
             }
             k++;
-            if (k > 1) {
-                if (realStackSize < sizeofNumber) {
-                    number[realStackSize] = runs[k].indices;
-                    realStackSize++;
-                }
+            if (k == 4) {
+                initializeStack(runs, stack, sizeofNumber);
             }
         }
         // Determine the direction of the run (initially ascending or descending)
@@ -127,8 +141,11 @@ int runMaker(int array[], runIndices runs[], int sizeBig, int minSize, int maxSi
         descending = false; // Reset the flag
     }
     // Handle the last element as the start of a run if it hasn't been included yet
-    if (i == sizeBig - 1 && k > 0 && runs[k - 1].indices != i) {
-        runs[k++].indices = i;
+    if (i == sizeBig - 1 && k > 0 && runs[k - 1].startIndices != i) {
+        runs[k++].startIndices = i;
+    }
+    if (k == 4) {
+        //the stack has already been initialized, now the invariants shall be checked
     }
     return k;
 }
@@ -253,48 +270,67 @@ void descendingFunction(int *i, int sizeBig, int minSize, int array[], int *star
     }
 }
 
-void stack(int array[], int *arraySize, int stackArray[], int *realSizeStackArray, int *fullSizeStackArray, runIndices
-run[], int
-           k) {
-    for (int n = 0; n < *fullSizeStackArray; n++) {
-        if (stackArray[n] != 0) {
-            (*realSizeStackArray)++;
-        }
-    }
-    if (*realSizeStackArray < *fullSizeStackArray) {
-        stackArray[*realSizeStackArray] = run[k].indices;
-    } else if (*realSizeStackArray == 2) {
-        int firstArrayLength = run[k - 2].length;
-        int secondArrayLength = run[k - 1].length;
-        int thirdArrayLength = run[k].length;
-        //do the normal comparison
-        int xArray[firstArrayLength];
-        int yArray[secondArrayLength];
-        int zArray[thirdArrayLength];
-        if (secondArrayLength <= thirdArrayLength) {
-            //do the thing
-        }
-        if (firstArrayLength <= (secondArrayLength + thirdArrayLength)) {
-
-        }
-
-
-        //then after it is done,push the next array
-    }
+int stack(int array[], int *arraySize, int stackArray[], runIndices run[], runIndices mergedRuns[], runIndices stack[], int *arrayPosition) {
+    int elements = 0;
+    int firstArrayLength = stack[0].length;
+    int firstArray[firstArrayLength];
+    pocket(array, stack[0].startIndices, stack[0].endIndices, firstArray);
+    //second array length is basically k-1
+    int secondArrayLength = stack[1].length;
+    int secondArray[secondArrayLength];
+    pocket(array, stack[1].startIndices, stack[1].endIndices, secondArray);
+    //third array length is basically k
+    int thirdArrayLength = stack[2].length;
+    int thirdArray[thirdArrayLength];
+    pocket(array, stack[2].startIndices, stack[2].endIndices, thirdArray);
+    elements = firstInvariantLogic(array, firstArray, secondArray, thirdArray, run, mergedRuns, stack, arrayPosition, &firstArrayLength, &secondArrayLength, &thirdArrayLength);
+    elements = elements + secondInvariantLogic(array, firstArray, secondArray, thirdArray, run, mergedRuns, stack, arrayPosition, &firstArrayLength, &secondArrayLength, &thirdArrayLength);
 }
 
-void secondInvariantLogic(int array[], int *arraySize, int stackArray[], int *realSizeStackArray, int *fullSizeStackArray, runIndices
-run[], int k, int *firstArrayLength, int *secondArrayLength, int *thirdArrayLength) {
-    if ((*firstArrayLength) + (*secondArrayLength) < (*secondArrayLength) + (*thirdArrayLength)) {
-        //merge array X and Y into the first spot and push Z into the second spot leaving number 3 spot free
-    } else if ((*secondArrayLength) + (*thirdArrayLength) < (*firstArrayLength) + (*secondArrayLength)) {
-        //merge Y and Z and push merge them into the second spot and leave number 3 free
-    }
 
+int firstInvariantLogic(int array[], int firstArray[], int secondArray[], int thirdArray[], runIndices run[], runIndices mergedRuns[], runIndices stack[], int *arrayPosition, int *firstArrayLength, int *secondArrayLength, int *thirdArrayLength) {
+    int merged = 0;
+    // First Invariant Logic: If |X| <= |Y| + |Z| or |X| <= |Y|, then merge X and Y
+    if (*firstArrayLength <= (*secondArrayLength + *thirdArrayLength) || *firstArrayLength <= *secondArrayLength) {
+        // Merge firstArray (X) and secondArray (Y) as they are the smaller runs.
+        merged = combineMerge(array, firstArray, secondArray, firstArrayLength, secondArrayLength, arrayPosition);
+
+        // After merging, update stack[0] to reflect the new merged run (X+Y)
+        stack[0].startIndices = stack[0].startIndices; // remains the same as X's start
+        stack[0].endIndices = stack[1].endIndices; // end of Y becomes the end of the merged run
+        stack[0].length = stack[0].length + stack[1].length; // combined length of X and Y
+
+        // Shift Z down the stack to where Y was
+        stack[1] = stack[2];
+
+        // Reset the top of the stack as it has been shifted down
+        stack[2].startIndices = 0;
+        stack[2].endIndices = 0;
+        stack[2].length = 0;
+    }
+    return merged;
 }
 
-int combineMerge(int array[], int firstArray[], int secondArray[], int *firstArraySize, int
-*secondArraySize, int o) {
+
+int secondInvariantLogic(int array[], int firstArray[], int secondArray[], int thirdArray[], runIndices run[], runIndices mergedRuns[], runIndices stack[], int *arrayPosition, int *firstArrayLength, int *secondArrayLength, int *thirdArrayLength) {
+    int x = 0;
+    // Check if the second invariant is violated i.e., |Z| <= |Y|
+    if ((*thirdArrayLength) <= (*secondArrayLength)) {
+        x = combineMerge(array, secondArray, thirdArray, secondArrayLength, thirdArrayLength, arrayPosition);
+        // After merging, update the stack to reflect the new merged run.
+        stack[1].startIndices = stack[1].startIndices;
+        stack[1].endIndices = stack[2].endIndices;
+        stack[1].length = stack[1].length + stack[2].length;
+        // Reset the last run (Z) as it has been merged.
+        stack[2].startIndices = 0;
+        stack[2].endIndices = 0;
+        stack[2].length = 0;
+    }
+    return x;
+}
+
+
+int combineMerge(int array[], int firstArray[], int secondArray[], int *firstArraySize, int *secondArraySize, int *originalArrayPosition) {
     int i = 0;//for first array
     int j = 0;// for the second array
     int count = 0;
@@ -302,29 +338,29 @@ int combineMerge(int array[], int firstArray[], int secondArray[], int *firstArr
     int GALLOP_MODE_ENTER = 7; // Threshold to enter gallop mode
     while (i < *firstArraySize && j < *secondArraySize) {
         if (firstArray[i] < secondArray[j]) {
-            array[o] = firstArray[i];
-            o++;
+            array[*originalArrayPosition] = firstArray[i];
+            (*originalArrayPosition)++;
             i++;
             count++;
             winningStreak++;
             if (winningStreak >= GALLOP_MODE_ENTER) {
                 int elementsToSkip = gallop(i, *firstArraySize, firstArray, secondArray[j]);
                 for (int skipped = 0; skipped < elementsToSkip; skipped++) {
-                    array[o++] = firstArray[i++];
+                    array[(*originalArrayPosition)++] = firstArray[i++];
                 }
                 count += elementsToSkip;
                 winningStreak = 0;
             }
         } else if (secondArray[j] < firstArray[i]) {
-            array[o] = secondArray[j];
-            o++;
+            array[*originalArrayPosition] = secondArray[j];
+            (*originalArrayPosition)++;
             j++;
             count++;
             winningStreak++;
             if (winningStreak >= GALLOP_MODE_ENTER) {
                 int elementsToSkip = gallop(j, *secondArraySize, secondArray, firstArray[i]);
                 for (int skipped = 0; skipped < elementsToSkip; skipped++) {
-                    array[o++] = secondArray[j++];
+                    array[(*originalArrayPosition)++] = secondArray[j++];
                 }
                 count += elementsToSkip;
                 winningStreak = 0;
@@ -332,14 +368,14 @@ int combineMerge(int array[], int firstArray[], int secondArray[], int *firstArr
         }
     }
     while (j < *secondArraySize) {
-        array[o] = secondArray[j];
-        o++;
+        array[*originalArrayPosition] = secondArray[j];
+        (*originalArrayPosition)++;
         j++;
         count++;
     }
     while (i < *firstArraySize) {
-        array[o] = firstArray[i];
-        o++;
+        array[*originalArrayPosition] = firstArray[i];
+        (*originalArrayPosition)++;
         i++;
         count++;
     }
@@ -359,7 +395,6 @@ int gallop(int start, int end, int array[], int target) {
     int elements = insertPoint - start;
     return elements;
 }
-
 int binarySearch(int array[], int low, int high, int target) {
     while (low < high) {
         int mid = low + (high - low) / 2; // To avoid overflow
@@ -371,5 +406,30 @@ int binarySearch(int array[], int low, int high, int target) {
     }
     return low; // This will be the insertion point
 }
-
-
+void pocket(int *original, int start, int end, int *smallArray) {
+    // Ensure the indices are within the bounds of the original array
+    if (start >= 0 && end >= start) {
+        for (int i = start; i <= end; i++) {
+            smallArray[i - start] = original[i];  // Fill the smallArray with elements from the original array
+        }
+    }
+}
+void initializeStack(runIndices runs[], runIndices stack[], int sizeofNumber) {
+    int h;
+    int l = 0;
+    for (h = 0; h < sizeofNumber; h++) {
+        stack[h].startIndices = runs[l].startIndices;
+        stack[h].endIndices = runs[l].endIndices;
+        stack[h].length = runs[l].length;
+        l++;
+    }
+    if (h == sizeofNumber) {
+        for (int j = 0; j < h; j++) {
+            printf("\n");
+            printf(" Stack-> %d ", stack[j].startIndices);
+            printf("%d ", stack[j].endIndices);
+            printf("%d ", stack[j].length);
+            printf("\n");
+        }
+    }
+}
