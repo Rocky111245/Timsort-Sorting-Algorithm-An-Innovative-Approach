@@ -1,9 +1,8 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include "math.h"
 #include <time.h> // Include this header
-#include <string.h>
 #include <stdbool.h>
+
 
 struct RunIndices {
     int startIndices;
@@ -12,7 +11,7 @@ struct RunIndices {
 };
 typedef struct RunIndices runIndices;
 
-int runMaker(int array[], runIndices runs[], runIndices mergedRuns[], runIndices stack[], int sizeBig, int minSize);
+void runMaker(int array[], runIndices runs[], runIndices mergedRuns[], runIndices stack[], int sizeBig, int minSize, int* k, int* arrayPointer);
 int *binaryInsert(int firstArray[], int firstSize, int element);
 void ascending(int *i, int sizeBig, int minSize, int array[]);
 void descendingFunction(int *i, int sizeBig, int minSize, int array[], int *start_descending, bool *descending);
@@ -24,8 +23,12 @@ int firstInvariantLogic(int array[], int firstArray[], int secondArray[], int th
 int secondInvariantLogic(int array[], int firstArray[], int secondArray[], int thirdArray[], runIndices run[], runIndices mergedRuns[], runIndices stack[], int *arrayPosition, int *firstArrayLength, int *secondArrayLength, int *thirdArrayLength);
 void pocket(int *original, int start, int end, int *smallArray);
 void initializeStack(runIndices runs[], runIndices stack[], int sizeofNumber);
+void timSort(int array[], runIndices runs[], runIndices mergedRuns[], runIndices stack[], int sizeBig, int minSize, int* k);
+int countUntilZero(int array[], int size);
 
 int main() {
+    int k = 0; // Index for indices array
+    int arrayPosition=0;
     clock_t start, end; // Declare variables to hold the start and end times
     double cpu_time_used;
     start = clock(); // Get the start time
@@ -37,7 +40,7 @@ int main() {
                    6000, 6535, 5131, 4416, 5337, 6183, 2393, 3660, 8665, 463, 9150, 8223, 441, 1308, 471, 3645, 9782, 4035, 5527, 9136, 2354, 6266, 4846, 8589, 2264, 5697, 5782, 5951, 3114, 9480,
                    8370, 9385, 1018, 5442, 2150, 951, 3562, 884, 9, 6762, 6266, 7852, 439};
     int sizeBig = sizeof(array) / sizeof(array[0]);
-    int k = sizeBig;
+    int big = sizeBig;
     runIndices runs[70];
     runIndices mergedRuns[70];
     runIndices stack[3];
@@ -59,8 +62,8 @@ int main() {
     }
     int count = 0;
     // Calculate the nearest power of 2 for the number of runs
-    while (k != 1) {
-        k = k / 2;
+    while (big != 1) {
+        big = big / 2;
         count++;
     }
     int numberOfRuns = pow(2, count - 1); // Adjusting count to get the closest lower power of 2
@@ -80,7 +83,7 @@ int main() {
         printf("\n");
     }
     printf("\n");
-    int g = runMaker(array, runs, mergedRuns, stack, sizeBig, minRunSize) - 1;
+    runMaker(array, runs, mergedRuns, stack, sizeBig, minRunSize,&k,&arrayPosition);
     for (int l = 0; l < 70; l++) {
         printf("%d ", runs[l].startIndices);
         printf("%d ", runs[l].endIndices);
@@ -96,9 +99,6 @@ int main() {
         }
         printf("%d ", array[l]);
     }
-    printf("\n");
-    printf("%d", g);
-    printf("\n");
     end = clock(); // Get the end time
 
     // Calculate the time taken in seconds
@@ -107,49 +107,56 @@ int main() {
 }
 
 
-int runMaker(int array[], runIndices runs[], runIndices mergedRuns[], runIndices stack[], int sizeBig, int minSize) {
-    int k = 0; // Index for indices array
-    int i = 0; // Index for scanning through the main array
-    int realStackSize = 0;
+
+void runMaker(int array[], runIndices runs[], runIndices mergedRuns[], runIndices stack[], int sizeBig, int minSize, int* k, int* arrayPointer) {
+    int numberOfElementsInStack=0;
     int sizeofNumber = 3;
     int start_descending = 0;
     bool descending = 0;
-    while (i < sizeBig - 1 || descending == 1) {
+    while ((*arrayPointer) < sizeBig - 1 || descending == 1) {
 
         // Record the start of the current run
-        if (i < sizeBig - 1) {
-            runs[k].startIndices = i;
-            if (k == 0) {
-                runs[k].length = k;
+        if ((*arrayPointer) < sizeBig - 1) {
+            runs[*k].startIndices = (*arrayPointer);
+            if (*k == 0) {
+                runs[(*k)].length = (*k);
             } else {
-                runs[k - 1].endIndices = runs[k].startIndices - 1;
-                runs[k - 1].length = runs[k - 1].endIndices - runs[k - 1].startIndices;
+                runs[(*k) - 1].endIndices = runs[(*k)].startIndices - 1;
+                runs[(*k) - 1].length = (runs[(*k) - 1].endIndices - runs[(*k) - 1].startIndices)+1;
             }
-            k++;
-            if (k == 4) {
-                initializeStack(runs, stack, sizeofNumber);
+            (*k)++;
+            if((*k)==4){
+                stack[0]=runs[0];
+                stack[1]=runs[1];
+                stack[2]=runs[2];
+                numberOfElementsInStack=3;
+                //do the 1st invariant
+                //check size
+                //if size is 3,proceed to next if condition, and that means we need to put one run inside.
+                //check size
+                //do the 2nd invariant
+                //check size->if size is 3,pop one off, and that means we need to put one run inside.Escape this if statement.
             }
         }
+
         // Determine the direction of the run (initially ascending or descending)
-        if (array[i] < array[i + 1]) {
-            ascending(&i, sizeBig, minSize, array);
+        if (array[(*arrayPointer)] < array[(*arrayPointer) + 1]) {
+            ascending(&(*arrayPointer), sizeBig, minSize, array);
         } else {
-            descendingFunction(&i, sizeBig, minSize, array, &start_descending, &descending);
+            descendingFunction(&(*arrayPointer), sizeBig, minSize, array, &start_descending, &descending);
         }
         // Move to the next potential start of a run
-        if (descending == 0) i++;
+        if (descending == 0) (*arrayPointer)++;
         descending = false; // Reset the flag
     }
     // Handle the last element as the start of a run if it hasn't been included yet
-    if (i == sizeBig - 1 && k > 0 && runs[k - 1].startIndices != i) {
-        runs[k++].startIndices = i;
+    if ((*arrayPointer) == sizeBig - 1 && k > 0 && runs[(*k) - 1].startIndices != (*arrayPointer)) {
+        runs[(*k)++].startIndices = (*arrayPointer);
     }
-    if (k == 4) {
+    if ((*k) == 4) {
         //the stack has already been initialized, now the invariants shall be checked
     }
-    return k;
 }
-
 
 int *binaryInsert(int firstArray[], int firstSize, int element) {
     int left = 0;
@@ -285,6 +292,7 @@ int stack(int array[], int *arraySize, int stackArray[], runIndices run[], runIn
     pocket(array, stack[2].startIndices, stack[2].endIndices, thirdArray);
     elements = firstInvariantLogic(array, firstArray, secondArray, thirdArray, run, mergedRuns, stack, arrayPosition, &firstArrayLength, &secondArrayLength, &thirdArrayLength);
     elements = elements + secondInvariantLogic(array, firstArray, secondArray, thirdArray, run, mergedRuns, stack, arrayPosition, &firstArrayLength, &secondArrayLength, &thirdArrayLength);
+    return elements;
 }
 
 
@@ -432,4 +440,15 @@ void initializeStack(runIndices runs[], runIndices stack[], int sizeofNumber) {
             printf("\n");
         }
     }
+}
+
+int countUntilZero(int array[], int size) {
+    int count = 0;
+    for (int i = 0; i < size; i++) {
+        if (array[i] == 0) {
+            break;
+        }
+        count++;
+    }
+    return count;
 }
